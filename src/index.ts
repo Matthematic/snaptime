@@ -1,3 +1,8 @@
+import dayjs from "dayjs";
+import duration from "dayjs/plugin/duration";
+
+dayjs.extend(duration);
+
 class SnapParseError extends Error {}
 
 class SnapUnitError extends Error {}
@@ -57,30 +62,23 @@ function getMult(string: string): number {
 }
 
 // Performs the actual snapping logic for each unit key
-function truncate(dateTime: Date, unit: string): Date {
+function truncate(dateTime: dayjs.Dayjs, unit: string): dayjs.Dayjs {
   switch (unit) {
     case "seconds":
-      dateTime.setMilliseconds(0);
-      break;
+      return dateTime.startOf("second");
     case "minutes":
-      dateTime.setSeconds(0, 0);
-      break;
+      return dateTime.startOf("minute");
     case "hours":
-      dateTime.setMinutes(0, 0, 0);
-      break;
+      return dateTime.startOf("hour");
     case "days":
-      dateTime.setHours(0, 0, 0, 0);
-      break;
+      return dateTime.startOf("day");
     case "months":
-      dateTime.setHours(0, 0, 0, 0);
-      dateTime.setDate(1);
-      break;
+      return dateTime.startOf("month");
     case "years":
-      dateTime.setMonth(0, 1);
-      dateTime.setHours(0, 0, 0, 0);
-      break;
+      return dateTime.startOf("year");
+    default:
+      return dateTime;
   }
-  return dateTime;
 }
 
 // patterns for matching the delta e.g. +1d, -2h
@@ -114,17 +112,17 @@ class SnapTransformation {
   }
 
   // Given a Date, modify it with the snapping logic
-  applyTo(dttm: Date): Date {
-    let result = new Date(dttm);
+  applyTo(dttm: dayjs.Dayjs): dayjs.Dayjs {
+    let result = dttm;
 
     if (this.unit === "weeks" && this.weekday !== null) {
       // handles particular weekdays e.g. -2w@w3
-      result.setDate(
-        result.getDate() - ((result.getDay() - this.weekday + 7) % 7)
-      );
+      const daysDifference = this.weekday - result.day();
+      result = result.add(daysDifference, "day");
       result = truncate(result, "days");
     } else if (this.unit === "weeks") {
-      result.setDate(result.getDate() - ((result.getDay() - 0 + 7) % 7));
+      const daysDifference = 0 - result.day();
+      result = result.add(daysDifference, "day");
       result = truncate(result, "days");
     } else {
       result = truncate(result, this.unit);
@@ -154,40 +152,34 @@ class DeltaTransformation {
   }
 
   // Given a Date, modify it with the delta logic
-  applyTo(dttm: Date): Date {
+  applyTo(dttm: dayjs.Dayjs): dayjs.Dayjs {
     if (this.unit === null || this.mult === null || this.num === null) {
       throw new SnapTransformError("No transformation to apply");
     }
 
-    const delta = { [this.unit]: this.mult * this.num };
-    const result = new Date(dttm);
+    let result = dttm;
+
     switch (this.unit) {
       case "seconds":
-        result.setSeconds(result.getSeconds() + delta.seconds);
+        result = result.add(this.mult * this.num, "second");
         break;
       case "minutes":
-        result.setMinutes(result.getMinutes() + delta.minutes);
+        result = result.add(this.mult * this.num, "minute");
         break;
       case "hours":
-        result.setHours(result.getHours() + delta.hours);
+        result = result.add(this.mult * this.num, "hour");
         break;
       case "days":
-        result.setDate(result.getDate() + delta.days);
+        result = result.add(this.mult * this.num, "day");
         break;
       case "weeks":
-        result.setDate(result.getDate() + delta.weeks * 7);
+        result = result.add(this.mult * this.num * 7, "day");
         break;
       case "months":
-        // This is a bit tricky because months have different numbers of days
-        // and they will overflow into the next month if the original date is greater than the last day of the next month
-        const originalDate = result.getDate();
-        result.setMonth(result.getMonth() + delta.months);
-        if (result.getDate() !== originalDate) {
-          result.setDate(0); // This will set the date to the last day of the previous month
-        }
+        result = result.add(this.mult * this.num, "month");
         break;
       case "years":
-        result.setFullYear(result.getFullYear() + delta.years);
+        result = result.add(this.mult * this.num, "year");
         break;
     }
     return result;
@@ -236,13 +228,13 @@ function parse(
  * console.log(result);
  */
 export default function snap(dttm: string, instruction: string): string {
-  const dateObj = new Date(dttm);
+  const dateObj = dayjs(dttm);
   const transformations = parse(instruction);
   const result = transformations.reduce(
     (dt, transformation) => transformation.applyTo(dt),
     dateObj
   );
-  if (result instanceof Date === false) {
+  if (!result.isValid()) {
     throw new Error("Unable to apply transformations");
   }
   return result.toISOString();
