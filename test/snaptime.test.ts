@@ -58,7 +58,7 @@ describe("Snaptime", () => {
     expect(result).toEqual("1980-03-01T00:00:00.000Z");
   });
 
-  test.only("-1mon@m-1mon", () => {
+  test("-1mon@m-1mon", () => {
     const result = snaptime(anchor, "-1mon@m-1mon");
     expect(result).toEqual("1979-11-01T00:00:00.000Z");
   });
@@ -121,5 +121,139 @@ describe("Snaptime", () => {
   test("-1d@d-30d", () => {
     const result = snaptime(anchor, "-1d@d-30d");
     expect(result).toEqual("1979-12-01T00:00:00.000Z");
+  });
+
+  describe("Boundary Conditions", () => {
+    test("Transform end of month", () => {
+      expect(snaptime("1980-01-31T00:00:00.000Z", "+1mon")).toBe(
+        "1980-02-29T00:00:00.000Z"
+      );
+    });
+
+    test("Transform leap year", () => {
+      expect(snaptime("2020-02-28T00:00:00.000Z", "+1d")).toBe(
+        "2020-02-29T00:00:00.000Z"
+      );
+    });
+
+    test("Transform end of year", () => {
+      expect(snaptime("1980-12-31T00:00:00.000Z", "+1d")).toBe(
+        "1981-01-01T00:00:00.000Z"
+      );
+    });
+  });
+
+  describe("Weekdays", () => {
+    test("Snap to Sunday from Saturday", () => {
+      expect(snaptime("1980-01-05T00:00:00.000Z", "@w6")).toBe(
+        "1980-01-06T00:00:00.000Z"
+      );
+    });
+
+    test("Negative delta with weekday", () => {
+      expect(snaptime("1980-01-07T00:00:00.000Z", "-1w@w5")).toBe(
+        "1980-01-05T00:00:00.000Z"
+      );
+    });
+  });
+
+  describe("Multiple Deltas and Snaps", () => {
+    test("Combine multiple transformations", () => {
+      expect(snaptime("1980-01-15T00:00:00.000Z", "+2y-3mon+5d@h")).toBe(
+        "1981-10-20T00:00:00.000Z"
+      );
+    });
+
+    test("Edge cases with multiple instructions", () => {
+      expect(snaptime("1980-01-31T00:00:00.000Z", "@m+1mon")).toBe(
+        "1980-02-29T00:00:00.000Z"
+      );
+    });
+  });
+
+  describe("Zero and No Units", () => {
+    test("No-op with +0y", () => {
+      expect(snaptime("1980-01-15T00:00:00.000Z", "+0y")).toBe(
+        "1980-01-15T00:00:00.000Z"
+      );
+    });
+
+    test("No explicit unit", () => {
+      expect(() => snaptime("1980-01-15T00:00:00.000Z", "@")).toThrow(
+        "Cannot parse instruction '@'. There is an error at '@'"
+      );
+    });
+
+    test("Blank instruction", () => {
+      expect(snaptime("1980-01-15T00:00:00.000Z", "")).toBe(
+        "1980-01-15T00:00:00.000Z"
+      );
+    });
+  });
+
+  describe("Invalid Instructions", () => {
+    test("Unrecognized units", () => {
+      // This could throw an error, so it might be wrapped in a try-catch or using .toThrow() jest method
+      expect(() => snaptime("1980-01-15T00:00:00.000Z", "+5z")).toThrow(
+        "Unknown unit string 'z'"
+      );
+    });
+
+    test("Instructions that make no sense", () => {
+      expect(() => snaptime("1980-01-15T00:00:00.000Z", "@y3")).toThrow(
+        "Cannot parse instruction '@y3'. There is an error at '3'"
+      );
+    });
+
+    test("Unparseable date format", () => {
+      expect(() =>
+        snaptime(
+          "Wed Aug 23 2023 12:26:40 GMT-0500 (Central Daylight Time)",
+          "+1d"
+        )
+      ).toThrow(
+        "Invalid date supplied, unable to parse. Please use ISO 8601 format"
+      );
+    });
+
+    test("Unparseable date object", () => {
+      expect(() =>
+        snaptime(
+          // @ts-ignore
+          new Date(),
+          "+1d"
+        )
+      ).toThrow(
+        "Invalid date supplied, unable to parse. Please use ISO 8601 format"
+      );
+    });
+  });
+
+  describe("Large Numbers", () => {
+    test("Large years positive", () => {
+      expect(snaptime("1980-01-15T00:00:00.000Z", "+1000y")).toBe(
+        "2980-01-15T00:00:00.000Z"
+      );
+    });
+
+    test("Large days negative", () => {
+      expect(snaptime("1980-01-15T00:00:00.000Z", "-10000d")).toBe(
+        "1952-08-29T00:00:00.000Z"
+      );
+    });
+  });
+
+  describe("Precision and Rounding", () => {
+    test("Date-time with milliseconds", () => {
+      expect(snaptime("1980-01-15T14:23:45.678Z", "@h")).toBe(
+        "1980-01-15T14:00:00.000Z"
+      );
+    });
+  });
+
+  describe("Different formats", () => {
+    test("non-utc input", () => {
+      expect(snaptime("1980-01-15T14", "@h")).toBe("1980-01-15T20:00:00.000Z");
+    });
   });
 });

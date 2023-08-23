@@ -1,7 +1,4 @@
-import dayjs from "dayjs";
-import duration from "dayjs/plugin/duration";
-
-dayjs.extend(duration);
+import { DateTime } from "luxon";
 
 class SnapParseError extends Error {}
 
@@ -53,7 +50,7 @@ function getWeekday(string: string): number | null {
   if (result !== null && !(result >= 0 && result <= 7)) {
     throw new SnapParseError(`Bad weekday '${result}'`);
   }
-  return result;
+  return result + 1; // Luxon uses 1-7 for weekdays, but this library needs to support 0-6.
 }
 
 // Given a string representing the sign of a signed int, return the direction of the sign.
@@ -61,34 +58,12 @@ function getMult(string: string): number {
   return string === "-" ? -1 : 1;
 }
 
-// Performs the actual snapping logic for each unit key
-function truncate(dateTime: dayjs.Dayjs, unit: string): dayjs.Dayjs {
-  switch (unit) {
-    case "seconds":
-      return dateTime.startOf("second");
-    case "minutes":
-      return dateTime.startOf("minute");
-    case "hours":
-      return dateTime.startOf("hour");
-    case "days":
-      return dateTime.startOf("day");
-    case "months":
-      return dateTime.startOf("month");
-    case "years":
-      return dateTime.startOf("year");
-    default:
-      return dateTime;
-  }
-}
-
 // patterns for matching the delta e.g. +1d, -2h
 const D_GENERAL = "[-+]?\\d+[a-zA-Z]+";
-const D_DETAILS = "(?<sign>[-+]?)(?<num>\\d+)(?<unit_string>[a-zA-Z]+)"; // D_GENERAL but with named capture groups
 const D_PATTERN = new RegExp("([-+]?)(\\d+)([a-zA-Z]+)");
 
 // patterns for matching the snap e.g. @d, @h
 const S_GENERAL = "@[a-zA-Z]+\\d*";
-const S_DETAILS = "@(?<unit_string>[a-zA-Z]+)(?<weekday>\\d*)"; // S_GENERAL but with named capture groups
 const S_PATTERN = new RegExp("@([a-zA-Z]+)(\\d*)");
 
 const HEAD_PATTERN = new RegExp(`^(${S_GENERAL}|${D_GENERAL})(.*)`);
@@ -105,27 +80,46 @@ class SnapTransformation {
     const match = S_PATTERN.exec(group);
     if (!match) throw new Error("No match");
 
-    console.log(match);
     // Using positional indices instead of named groups
     this.unit = getUnit(match[1]);
+    if (this.unit !== "weeks" && match[2] !== "") {
+      throw new SnapParseError(
+        `Cannot parse instruction '${group}'. There is an error at '${match[2]}'`
+      );
+    }
     this.weekday = getWeekday(match[2]);
+
+    console.log("unit", this.unit, "weekday", this.weekday);
   }
 
   // Given a Date, modify it with the snapping logic
-  applyTo(dttm: dayjs.Dayjs): dayjs.Dayjs {
+  applyTo(dttm: DateTime): DateTime {
     let result = dttm;
 
     if (this.unit === "weeks" && this.weekday !== null) {
-      // handles particular weekdays e.g. -2w@w3
-      const daysDifference = this.weekday - result.day();
-      result = result.add(daysDifference, "day");
-      result = truncate(result, "days");
-    } else if (this.unit === "weeks") {
-      const daysDifference = 0 - result.day();
-      result = result.add(daysDifference, "day");
-      result = truncate(result, "days");
+      result = result.set({ weekday: this.weekday });
     } else {
-      result = truncate(result, this.unit);
+      switch (this.unit) {
+        case "seconds":
+          result = result.startOf("second");
+          break;
+        case "minutes":
+          result = result.startOf("minute");
+          break;
+        case "hours":
+          result = result.startOf("hour");
+          break;
+        case "days":
+        case "weeks":
+          result = result.startOf("day");
+          break;
+        case "months":
+          result = result.startOf("month");
+          break;
+        case "years":
+          result = result.startOf("year");
+          break;
+      }
     }
 
     return result;
@@ -152,7 +146,7 @@ class DeltaTransformation {
   }
 
   // Given a Date, modify it with the delta logic
-  applyTo(dttm: dayjs.Dayjs): dayjs.Dayjs {
+  applyTo(dttm: DateTime): DateTime {
     if (this.unit === null || this.mult === null || this.num === null) {
       throw new SnapTransformError("No transformation to apply");
     }
@@ -161,27 +155,28 @@ class DeltaTransformation {
 
     switch (this.unit) {
       case "seconds":
-        result = result.add(this.mult * this.num, "second");
+        result = result.plus({ seconds: this.mult * this.num });
         break;
       case "minutes":
-        result = result.add(this.mult * this.num, "minute");
+        result = result.plus({ minutes: this.mult * this.num });
         break;
       case "hours":
-        result = result.add(this.mult * this.num, "hour");
+        result = result.plus({ hours: this.mult * this.num });
         break;
       case "days":
-        result = result.add(this.mult * this.num, "day");
+        result = result.plus({ days: this.mult * this.num });
         break;
       case "weeks":
-        result = result.add(this.mult * this.num * 7, "day");
+        result = result.plus({ weeks: this.mult * this.num });
         break;
       case "months":
-        result = result.add(this.mult * this.num, "month");
+        result = result.plus({ months: this.mult * this.num });
         break;
       case "years":
-        result = result.add(this.mult * this.num, "year");
+        result = result.plus({ years: this.mult * this.num });
         break;
     }
+
     return result;
   }
 }
@@ -223,19 +218,27 @@ function parse(
 /**
  * Performs an instruction on an ISO 8601 string and returns an ISO 8601 string
  * Example usage:
- * const currentDate = new Date().toISOString(); // Use the current date and time
- * const result = snap(currentDate, "@mon");
- * console.log(result);
+ * const result = snap(new Date().toISOString(), "@mon");
  */
-export default function snap(dttm: string, instruction: string): string {
-  const dateObj = dayjs(dttm);
+export default function snap(dttm: string, instruction: string): string | null {
+  const dateObj = DateTime.fromISO(dttm).toUTC();
+
+  // if the dateObj is not valid, then the string supplied was not parseable by luxon
+  if (!dateObj.isValid) {
+    throw new SnapParseError(
+      "Invalid date supplied, unable to parse. Please use ISO 8601 format"
+    );
+  }
+
   const transformations = parse(instruction);
   const result = transformations.reduce(
     (dt, transformation) => transformation.applyTo(dt),
     dateObj
   );
-  if (!result.isValid()) {
-    throw new Error("Unable to apply transformations");
+
+  if (!result.isValid) {
+    throw new SnapTransformError("Unable to apply transformations");
   }
-  return result.toISOString();
+
+  return result.toUTC().toISO();
 }

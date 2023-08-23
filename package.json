@@ -5,7 +5,7 @@
   "main": "build/index.js",
   "scripts": {
     "pretest": "tsc",
-    "test": "jest"
+    "test": "TZ=America/Chicago jest"
   },
   "keywords": [
     "timestamp",
@@ -19,11 +19,12 @@
   "license": "ISC",
   "devDependencies": {
     "@types/jest": "^29.5.4",
+    "@types/luxon": "^3.3.1",
     "jest": "^29.6.3",
     "ts-jest": "^29.1.1",
     "typescript": "^5.1.6"
   },
   "dependencies": {
-    "dayjs": "^1.11.9"
+    "luxon": "^3.4.1"
   }
 }
