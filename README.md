@@ -1,7 +1,3 @@
-Certainly! Here's a basic README for your package:
-
----
-
 # Snaptime
 
 A powerful and precise datetime snapper and transformer written in Typescript, converted from the Python [zartstrom/snaptime](https://github.com/zartstrom/snaptime) library.
