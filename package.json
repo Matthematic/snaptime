@@ -5,6 +5,7 @@
   "main": "build/index.js",
   "scripts": {
     "pretest": "tsc",
+    "postinstall": "tsc",
     "test": "TZ=America/Chicago jest"
   },
   "keywords": [
