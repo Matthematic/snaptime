@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@types/luxon':
+    specifier: ^3.3.1
+    version: 3.3.1
   luxon:
     specifier: ^3.4.1
     version: 3.4.1
@@ -13,9 +16,6 @@ devDependencies:
   '@types/jest':
     specifier: ^29.5.4
     version: 29.5.4
-  '@types/luxon':
-    specifier: ^3.3.1
-    version: 3.3.1
   jest:
     specifier: ^29.6.3
     version: 29.6.3
@@ -701,7 +701,7 @@ packages:
 
   /@types/luxon@3.3.1:
     resolution: {integrity: sha512-XOS5nBcgEeP2PpcqJHjCWhUCAzGfXIU8ILOSLpx2FhxqMW9KdxgCGXNOEKGVBfveKtIpztHzKK5vSRVLyW/NqA==}
-    dev: true
+    dev: false
 
   /@types/node@20.5.3:
     resolution: {integrity: sha512-ITI7rbWczR8a/S6qjAW7DMqxqFMjjTo61qZVWJ1ubPvbIQsL5D/TvwjYEalM8Kthpe3hTzOGrF2TGbAu2uyqeA==}
