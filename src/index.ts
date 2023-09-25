@@ -221,13 +221,17 @@ function parse(
  * const result = snap(new Date().toISOString(), "@mon");
  */
 export default function snap(dttm: string, instruction: string): string | null {
-  const dateObj = DateTime.fromISO(dttm).toUTC();
+  const dateObj = DateTime.fromISO(dttm);
 
   // if the dateObj is not valid, then the string supplied was not parseable by luxon
   if (!dateObj.isValid) {
     throw new SnapParseError(
       "Invalid date supplied, unable to parse. Please use ISO 8601 format"
     );
+  }
+
+  if (!instruction) {
+    return dttm;
   }
 
   const transformations = parse(instruction);
@@ -240,5 +244,5 @@ export default function snap(dttm: string, instruction: string): string | null {
     throw new SnapTransformError("Unable to apply transformations");
   }
 
-  return result.toUTC().toISO();
+  return result.toISO();
 }
