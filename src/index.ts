@@ -227,7 +227,6 @@ export default function snap(
   instruction: string,
   opts?: { zone: string }
 ): string | null {
-  console.log("input", dttm);
   const dateObj = DateTime.fromISO(dttm, { zone: opts?.zone });
 
   // if the dateObj is not valid, then the string supplied was not parseable by luxon
@@ -240,8 +239,6 @@ export default function snap(
   if (!instruction) {
     return dttm;
   }
-
-  console.log("dateObj", dateObj.toISO(), dateObj.zoneName);
 
   const transformations = parse(instruction);
   const result = transformations.reduce(
