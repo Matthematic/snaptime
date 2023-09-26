@@ -1,4 +1,4 @@
-import { DateTime, Duration, DurationLikeObject, DurationUnits } from "luxon";
+import { DateTime, Duration, DurationLikeObject } from "luxon";
 
 class SnapParseError extends Error {}
 
@@ -8,6 +8,7 @@ class SnapTransformError extends Error {}
 
 // Defines the acceptable units and unit aliases
 const UNIT_LISTS: Record<string, string[]> = {
+  milliseconds: ["ms", "millisecond", "milliseconds"],
   seconds: ["s", "sec", "secs", "second", "seconds"],
   minutes: ["m", "min", "minute", "minutes"],
   hours: ["h", "hr", "hrs", "hour", "hours"],
@@ -88,8 +89,6 @@ class SnapTransformation {
       );
     }
     this.weekday = getWeekday(match[2]);
-
-    console.log("unit", this.unit, "weekday", this.weekday);
   }
 
   // Given a Date, modify it with the snapping logic
@@ -154,6 +153,9 @@ class DeltaTransformation {
     let result = dttm;
 
     switch (this.unit) {
+      case "milliseconds":
+        result = result.plus({ milliseconds: this.mult * this.num });
+        break;
       case "seconds":
         result = result.plus({ seconds: this.mult * this.num });
         break;
@@ -246,6 +248,10 @@ export default function snap(dttm: string, instruction: string): string | null {
   return result.toISO();
 }
 
+/**
+ * @private
+ * Given a Luxon Duration object, return a modifier string that represents it
+ */
 function createModifierString(diff: Duration) {
   const units = [
     "years",
@@ -283,23 +289,10 @@ function createModifierString(diff: Duration) {
 }
 
 /**
- *
- * Rules:
- * 1. Fewest Transformations:
- *  Prefer representations that use the fewest number of transformations.
- *  This includes both delta and snap transformations
- *  Example1: Prefer “-1mon@mon” over “-1w-1w-1w-1w@mon”.
- *  Example2: Prefer “@year” over “@day@month@year”.
- *
- * 2. Largest Units:
- *  When multiple representations with the same number of transformations are possible, prefer the one using the largest time units.
- *  Example: Prefer “+1y@d” over “+12mon@d”.
- *  Example: Prefer “+1mon+1w” over “+4w+1w”.
- *
- * 3. Absolute Value Comparison:
- *  Convert the time difference represented by the modifier string to an absolute value in a common unit (milliseconds) and compare.
- *  Choose the representation with the smallest absolute value.
- *  Example: Between “-54d@mon” and “-1mon@mon”, choose “-1mon@mon” as it has a smaller absolute value in milliseconds.
+ * @experimental
+ * Performs the reverse of snap(), returning a modifier string that can be used to snap a date to another date.
+ * Warning: This behavior is highly experimental, as the logic for deriving and simplifying the modifier string is difficult
+ * and not fully developed.
  */
 export function unsnap(target: string, anchor: string): string {
   const targetDate = DateTime.fromISO(target);
@@ -328,7 +321,6 @@ export function unsnap(target: string, anchor: string): string {
     )
     .shiftToAll()
     .normalize();
-  console.log(diff.toObject());
   const modifierString = createModifierString(diff);
 
   const simplifiedModifier = simplify(
@@ -337,11 +329,14 @@ export function unsnap(target: string, anchor: string): string {
     targetDate,
     anchorDate
   );
-  console.log("splified", simplifiedModifier);
 
   return simplifiedModifier;
 }
 
+/**
+ * @private
+ * This method makes an attempt to simplify a modifer string with snap transformations
+ */
 function simplify(
   diff: DurationLikeObject,
   modifier: string,
@@ -353,19 +348,13 @@ function simplify(
     .filter((key) => diff[key] !== 0)
     .reverse();
 
-  console.log("diffKeys", diffKeys);
-
   for (let i = 0; i < diffKeys.length; i++) {
-    console.log("making new modifier for", diffKeys[i]);
     const newModifier = snapDescendants(modifier, diffKeys[i]);
-    console.log("newModifier", newModifier);
     const newSnap = snap(anchorDate.toISO() as string, newModifier);
-    console.log("newSnap", newSnap, "equal to target?", targetDate.toISO());
     if (
       newSnap === targetDate.toISO() &&
       newModifier.length <= modifier.length
     ) {
-      console.log("yep");
       return newModifier;
     }
   }
@@ -373,6 +362,19 @@ function simplify(
   return modifier;
 }
 
+/**
+ * @private
+ * Given a modifier string, this method tries to find the limit that a series of
+ * delta transformations is approaching, and replacing that series with a snap transformation.
+ *
+ * For Example:
+ * ```javascript
+ * const result = snapDescendants("-1d-23h-59m-59s-999ms", "days");
+ * expect(result).toBe("-1d@d");
+ * ```
+ *
+ * This method is used internally by unsnap() to simplify the modifier string.
+ */
 export function snapDescendants(
   modifierString: string,
   unitType: keyof typeof UNIT_LISTS

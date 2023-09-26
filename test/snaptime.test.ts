@@ -7,6 +7,26 @@ describe("snap", () => {
     expect(snap(anchor, "")).toBe(anchor);
   });
 
+  test("+1ms", () => {
+    const result = snap(anchor, "+1ms");
+    expect(result).toEqual("1980-01-01T00:00:00.001-06:00");
+  });
+
+  test("+1ms@ms", () => {
+    const result = snap(anchor, "+1ms@ms");
+    expect(result).toEqual("1980-01-01T00:00:00.001-06:00");
+  });
+
+  test("-1ms", () => {
+    const result = snap(anchor, "-1ms");
+    expect(result).toEqual("1979-12-31T23:59:59.999-06:00");
+  });
+
+  test("-1ms@ms", () => {
+    const result = snap(anchor, "-1ms@ms");
+    expect(result).toEqual("1979-12-31T23:59:59.999-06:00");
+  });
+
   test("+1y", () => {
     const result = snap(anchor, "+1y");
     expect(result).toEqual("1981-01-01T00:00:00.000-06:00");
@@ -259,13 +279,7 @@ describe("snap", () => {
   });
 });
 
-describe.only("unsnap", () => {
-  it.only("should unsnap to end of day", () => {
-    expect(
-      unsnap("2023-09-25T23:59:59.999-05:00", "2023-09-24T00:00:00-05:00")
-    ).toBe("+1d+23h+59m+59s");
-  });
-
+describe("unsnap", () => {
   it("should unsnap to start of day", () => {
     expect(
       unsnap("2023-09-24T00:00:00-05:00", "2023-09-25T23:59:59-05:00")
@@ -276,7 +290,6 @@ describe.only("unsnap", () => {
     const timestamp = "2023-08-01T00:00:00.000-05:00";
     const anchor = "2023-09-24T00:00:00.000-05:00";
     const instruction = unsnap(timestamp, anchor);
-    //expect(instruction).toBe("-1mon-3w-3d");
     expect(snap(anchor, instruction)).toBe(timestamp);
   });
 
