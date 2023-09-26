@@ -2,6 +2,10 @@
   "name": "snaptime",
   "version": "1.0.0",
   "description": "A package for transforming timestamps",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matthematic/snaptime.git"
+  },
   "main": "build/index.js",
   "scripts": {
     "pretest": "tsc",
