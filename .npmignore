@@ -1,0 +1,8 @@
+.github/
+build/
+node_modules/
+test/
+tsconfig.json
+jest.config.js
+pnpm-lock.yaml
+.vscode/

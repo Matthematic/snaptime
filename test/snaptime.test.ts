@@ -277,6 +277,22 @@ describe("snap", () => {
       expect(snap("1980-01-15T14", "@h")).toBe("1980-01-15T14:00:00.000-06:00");
     });
   });
+
+  describe("Timezones", () => {
+    it("Persists Timezone using option", () => {
+      expect(
+        snap("2023-09-26T12:35:31.337-07:00", "@d", {
+          zone: "America/Los_Angeles",
+        })
+      ).toBe("2023-09-26T00:00:00.000-07:00");
+    });
+
+    it("Converts Timezone to local", () => {
+      expect(snap("2023-09-26T12:35:31.337-07:00", "@d")).toBe(
+        "2023-09-26T00:00:00.000-05:00"
+      );
+    });
+  });
 });
 
 describe("unsnap", () => {

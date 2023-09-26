@@ -222,8 +222,13 @@ function parse(
  * Example usage:
  * const result = snap(new Date().toISOString(), "@mon");
  */
-export default function snap(dttm: string, instruction: string): string | null {
-  const dateObj = DateTime.fromISO(dttm);
+export default function snap(
+  dttm: string,
+  instruction: string,
+  opts?: { zone: string }
+): string | null {
+  console.log("input", dttm);
+  const dateObj = DateTime.fromISO(dttm, { zone: opts?.zone });
 
   // if the dateObj is not valid, then the string supplied was not parseable by luxon
   if (!dateObj.isValid) {
@@ -235,6 +240,8 @@ export default function snap(dttm: string, instruction: string): string | null {
   if (!instruction) {
     return dttm;
   }
+
+  console.log("dateObj", dateObj.toISO(), dateObj.zoneName);
 
   const transformations = parse(instruction);
   const result = transformations.reduce(
