@@ -1,6 +1,6 @@
 .github/
-build/
 node_modules/
+src/
 test/
 tsconfig.json
 jest.config.js

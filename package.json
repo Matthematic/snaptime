@@ -1,6 +1,6 @@
 {
   "name": "snaptime",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A package for transforming timestamps",
   "repository": {
     "type": "git",
@@ -9,7 +9,7 @@
   "main": "build/index.js",
   "scripts": {
     "pretest": "tsc",
-    "postinstall": "tsc",
+    "prepare": "tsc",
     "test": "TZ=America/Chicago jest"
   },
   "keywords": [
