@@ -1,5 +1,7 @@
 # Snaptime
 
+[![Build & Release](https://github.com/Matthematic/snaptime/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Matthematic/snaptime/actions/workflows/release.yml)
+
 A powerful and precise datetime snapper and transformer written in Typescript, converted from the Python [zartstrom/snaptime](https://github.com/zartstrom/snaptime) library and extended.
 
 ## Introduction
