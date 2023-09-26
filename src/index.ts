@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import { DateTime, Duration, DurationLikeObject, DurationUnits } from "luxon";
 
 class SnapParseError extends Error {}
 
@@ -243,6 +243,211 @@ export default function snap(dttm: string, instruction: string): string | null {
   if (!result.isValid) {
     throw new SnapTransformError("Unable to apply transformations");
   }
-
   return result.toISO();
+}
+
+function createModifierString(diff: Duration) {
+  const units = [
+    "years",
+    "months",
+    "weeks",
+    "days",
+    "hours",
+    "minutes",
+    "seconds",
+    "milliseconds",
+  ];
+  const unitAbbreviations = {
+    years: "y",
+    months: "mon",
+    weeks: "w",
+    days: "d",
+    hours: "h",
+    minutes: "m",
+    seconds: "s",
+    milliseconds: "ms",
+  };
+
+  let modifierString = "";
+  for (const unit of units) {
+    // @ts-expect-error
+    const value = diff[unit];
+    if (value !== 0) {
+      const sign = value > 0 ? "+" : "-";
+      // @ts-expect-error
+      modifierString += `${sign}${Math.abs(value)}${unitAbbreviations[unit]}`;
+    }
+  }
+
+  return modifierString;
+}
+
+/**
+ *
+ * Rules:
+ * 1. Fewest Transformations:
+ *  Prefer representations that use the fewest number of transformations.
+ *  This includes both delta and snap transformations
+ *  Example1: Prefer “-1mon@mon” over “-1w-1w-1w-1w@mon”.
+ *  Example2: Prefer “@year” over “@day@month@year”.
+ *
+ * 2. Largest Units:
+ *  When multiple representations with the same number of transformations are possible, prefer the one using the largest time units.
+ *  Example: Prefer “+1y@d” over “+12mon@d”.
+ *  Example: Prefer “+1mon+1w” over “+4w+1w”.
+ *
+ * 3. Absolute Value Comparison:
+ *  Convert the time difference represented by the modifier string to an absolute value in a common unit (milliseconds) and compare.
+ *  Choose the representation with the smallest absolute value.
+ *  Example: Between “-54d@mon” and “-1mon@mon”, choose “-1mon@mon” as it has a smaller absolute value in milliseconds.
+ */
+export function unsnap(target: string, anchor: string): string {
+  const targetDate = DateTime.fromISO(target);
+  const anchorDate = anchor ? DateTime.fromISO(anchor) : DateTime.now();
+
+  if (!targetDate.isValid || !anchorDate.isValid) {
+    throw new SnapParseError(
+      "Invalid date supplied, unable to parse. Please use ISO 8601 format"
+    );
+  }
+
+  const diff = targetDate
+    .diff(
+      anchorDate,
+      [
+        "years",
+        "months",
+        "weeks",
+        "days",
+        "hours",
+        "minutes",
+        "seconds",
+        "milliseconds",
+      ],
+      { conversionAccuracy: "longterm" }
+    )
+    .shiftToAll()
+    .normalize();
+  console.log(diff.toObject());
+  const modifierString = createModifierString(diff);
+
+  const simplifiedModifier = simplify(
+    diff,
+    modifierString,
+    targetDate,
+    anchorDate
+  );
+  console.log("splified", simplifiedModifier);
+
+  return simplifiedModifier;
+}
+
+function simplify(
+  diff: DurationLikeObject,
+  modifier: string,
+  targetDate: DateTime,
+  anchorDate: DateTime
+): string {
+  const diffKeys = Object.keys(UNIT_LISTS)
+    // @ts-expect-error
+    .filter((key) => diff[key] !== 0)
+    .reverse();
+
+  console.log("diffKeys", diffKeys);
+
+  for (let i = 0; i < diffKeys.length; i++) {
+    console.log("making new modifier for", diffKeys[i]);
+    const newModifier = snapDescendants(modifier, diffKeys[i]);
+    console.log("newModifier", newModifier);
+    const newSnap = snap(anchorDate.toISO() as string, newModifier);
+    console.log("newSnap", newSnap, "equal to target?", targetDate.toISO());
+    if (
+      newSnap === targetDate.toISO() &&
+      newModifier.length <= modifier.length
+    ) {
+      console.log("yep");
+      return newModifier;
+    }
+  }
+
+  return modifier;
+}
+
+export function snapDescendants(
+  modifierString: string,
+  unitType: keyof typeof UNIT_LISTS
+) {
+  const unitsHierarchy = [
+    "years",
+    "months",
+    "weeks",
+    "days",
+    "hours",
+    "minutes",
+    "seconds",
+    "milliseconds",
+  ];
+
+  let result = "";
+  let negativeChain = "";
+  let insideNegativeChain = false;
+
+  for (const unit of unitsHierarchy) {
+    if (UNIT_LISTS[unit]) {
+      for (const abbreviation of UNIT_LISTS[unit]) {
+        const regex = new RegExp(`([+-]?\\d+)${abbreviation}\\b`, "g");
+        const match = regex.exec(modifierString);
+
+        if (match) {
+          if (match[0].startsWith("-")) {
+            insideNegativeChain = true;
+            negativeChain = match[0] + negativeChain;
+          } else if (insideNegativeChain) {
+            // Once we encounter a positive delta after starting the negative chain, we stop and snap the negative chain
+            const snappedNegativeChain = snapNegativeChain(
+              negativeChain,
+              unitType
+            );
+            return result + snappedNegativeChain;
+          } else {
+            result = result + match[0];
+          }
+        }
+      }
+    }
+  }
+
+  // If the entire string is a negative chain, we snap it
+  if (insideNegativeChain) {
+    const snappedNegativeChain = snapNegativeChain(negativeChain, unitType);
+    return result + snappedNegativeChain;
+  }
+
+  return modifierString; // Return the original string if there is no negative chain
+
+  function snapNegativeChain(chain: any, unitType: any) {
+    let isSnapping = false;
+    let snappedChain = "";
+
+    for (const unit of unitsHierarchy) {
+      if (unit === unitType) isSnapping = true;
+
+      if (UNIT_LISTS[unit]) {
+        for (const abbreviation of UNIT_LISTS[unit]) {
+          const regex = new RegExp(`([+-]?\\d+)${abbreviation}\\b`, "g");
+          const match = regex.exec(chain);
+
+          if (match) {
+            if (isSnapping) {
+              return snappedChain + match[0] + "@" + UNIT_LISTS[unit][0]; // Return immediately after snapping
+            } else {
+              snappedChain = snappedChain + match[0];
+            }
+          }
+        }
+      }
+    }
+
+    return snappedChain;
+  }
 }
