@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import snap, { snapDescendants, unsnap } from "../src/index";
 
 const anchor = "1980-01-01T00:00:00.000-06:00";
@@ -145,6 +146,11 @@ describe("snap", () => {
   test("-1d@d-30d", () => {
     const result = snap(anchor, "-1d@d-30d");
     expect(result).toEqual("1979-12-01T00:00:00.000-06:00");
+  });
+
+  test("now", () => {
+    const result = snap(anchor, "now");
+    expect(result).toEqual(DateTime.now().toISO());
   });
 
   describe("Boundary Conditions", () => {

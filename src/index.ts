@@ -240,6 +240,13 @@ export default function snap(
     return dttm;
   }
 
+  // return the current date if the instruction is "now"
+  if (instruction === "now") {
+    return DateTime.fromISO(DateTime.now().toISO() as string, {
+      zone: opts?.zone,
+    }).toISO();
+  }
+
   const transformations = parse(instruction);
   const result = transformations.reduce(
     (dt, transformation) => transformation.applyTo(dt),
