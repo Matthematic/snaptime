@@ -11,7 +11,8 @@
     "pretest": "tsc",
     "prepack": "tsc",
     "prepare": "husky install",
-    "test": "TZ=America/Chicago jest"
+    "test": "TZ=America/Chicago jest",
+    "version": "auto-changelog -u && git add CHANGELOG.md"
   },
   "keywords": [
     "timestamp",
@@ -25,13 +26,14 @@
   "license": "ISC",
   "devDependencies": {
     "@types/jest": "^29.5.4",
+    "auto-changelog": "^2.4.0",
+    "husky": "^8.0.0",
     "jest": "^29.6.3",
     "ts-jest": "^29.1.1",
-    "typescript": "^5.1.6",
-    "husky": "^8.0.0"
+    "typescript": "^5.1.6"
   },
   "dependencies": {
-    "luxon": "^3.4.1",
-    "@types/luxon": "^3.3.1"
+    "@types/luxon": "^3.3.1",
+    "luxon": "^3.4.1"
   }
 }
