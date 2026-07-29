@@ -1,0 +1,121 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**/src/**/*", "**/test/**/*"]
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 120,
+    "attributePosition": "auto",
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "expand": "auto",
+    "useEditorconfig": true,
+    "includes": [
+      "**",
+      "!**/node_modules/",
+      "!**/dist/",
+      "!src/templates/",
+      "!**/docs/",
+      "!**/pnpm-lock.yaml",
+      "!public/mockServiceWorker.js",
+      "!src/routeTree.gen.ts"
+    ]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        "useSemanticElements": "off",
+        "useKeyWithClickEvents": "warn",
+        "noStaticElementInteractions": "info"
+      },
+      "correctness": {
+        "noUndeclaredVariables": "error",
+        "noChildrenProp": "off"
+      },
+      "style": {
+        "noCommonJs": "error",
+        "noNamespace": "error",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "date-fns": "luxon is this app's date library. date-fns is only an internal dependency of react-day-picker — do not import it directly.",
+              "dayjs": "luxon is this app's date library."
+            }
+          }
+        },
+        "useAsConstAssertion": "error",
+        "useBlockStatements": "error",
+        "useThrowOnlyError": "warn"
+      },
+      "suspicious": {
+        "noConstantBinaryExpressions": "error",
+        "noEmptyBlockStatements": "warn",
+        "noExplicitAny": "error",
+        "noExtraNonNullAssertion": "warn",
+        "noIrregularWhitespace": "error",
+        "noUnusedExpressions": "warn",
+        "useAwait": "warn",
+        "noArrayIndexKey": "warn"
+      }
+    },
+    "includes": [
+      "**",
+      "!node_modules/",
+      "!dist/",
+      "!storybook-static/",
+      "!.pnpm-store/",
+      "!playwright-report/",
+      "!test-results/",
+      "!public/mockServiceWorker.js",
+      "!playwright/.cache/"
+    ]
+  },
+  "javascript": {
+    "formatter": {
+      "jsxQuoteStyle": "double",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "all",
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "bracketSameLine": false,
+      "quoteStyle": "single",
+      "attributePosition": "auto",
+      "bracketSpacing": true
+    },
+    "globals": []
+  },
+  "html": {
+    "experimentalFullSupportEnabled": true,
+    "formatter": {
+      "enabled": true,
+      "indentScriptAndStyle": true,
+      "selfCloseVoidElements": "always"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    },
+    "formatter": {
+      "enabled": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": { "source": { "organizeImports": "on" } }
+  }
+}

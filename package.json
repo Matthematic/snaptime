@@ -12,7 +12,12 @@
     "prepack": "tsc",
     "prepare": "husky install",
     "test": "TZ=America/Chicago jest",
-    "version": "auto-changelog -u && git add CHANGELOG.md"
+    "version": "auto-changelog -u && git add CHANGELOG.md",
+    "format": "biome format --write",
+    "lint": "biome lint --write",
+    "check": "biome check --write",
+    "tsc": "tsc",
+    "ci": "biome ci"
   },
   "keywords": [
     "timestamp",
@@ -25,6 +30,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@biomejs/biome": "2.4.10",
     "@types/jest": "^29.5.4",
     "auto-changelog": "^2.4.0",
     "husky": "^8.0.0",

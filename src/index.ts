@@ -1,4 +1,4 @@
-import { DateTime, Duration, DurationLikeObject } from "luxon";
+import { DateTime, type Duration, type DurationLikeObject } from 'luxon';
 
 class SnapParseError extends Error {}
 
@@ -8,14 +8,14 @@ class SnapTransformError extends Error {}
 
 // Defines the acceptable units and unit aliases
 const UNIT_LISTS: Record<string, string[]> = {
-  milliseconds: ["ms", "millisecond", "milliseconds"],
-  seconds: ["s", "sec", "secs", "second", "seconds"],
-  minutes: ["m", "min", "minute", "minutes"],
-  hours: ["h", "hr", "hrs", "hour", "hours"],
-  days: ["d", "day", "days"],
-  weeks: ["w", "week", "weeks"],
-  months: ["mon", "month", "months"],
-  years: ["y", "yr", "yrs", "year", "years"],
+  milliseconds: ['ms', 'millisecond', 'milliseconds'],
+  seconds: ['s', 'sec', 'secs', 'second', 'seconds'],
+  minutes: ['m', 'min', 'minute', 'minutes'],
+  hours: ['h', 'hr', 'hrs', 'hour', 'hours'],
+  days: ['d', 'day', 'days'],
+  weeks: ['w', 'week', 'weeks'],
+  months: ['mon', 'month', 'months'],
+  years: ['y', 'yr', 'yrs', 'year', 'years'],
 };
 
 // Given a string, return the unit included, if any.
@@ -33,39 +33,40 @@ function getUnit(string: string): string {
 }
 
 // Convert a string to a number, defaulting to 1 if there is none.
-// The default of 1 is chosen because @w needs to default to monday
-// as monday is the first day of the week in the ISO 8601 standard.
 function getNum(string: string, defaultVal: number | null = 1): number {
-  if ((!string || string === "") && defaultVal !== null) {
+  if ((!string || string === '') && defaultVal !== null) {
     return defaultVal;
   }
   return parseInt(string, 10);
 }
 
-// Given a weekday unit string, return the weekday index it represents, 0-6
-function getWeekday(string: string): number | null {
-  if (typeof string == "string" && string.length === 0) {
-    return null;
+// Given a weekday unit string, return the Luxon ISO weekday (1=Mon, 7=Sun) it represents.
+// Matches the Python snaptime convention: no digit or 0 → Sunday, 1–6 → Mon–Sat, 7 → Sunday.
+function getWeekday(string: string): number {
+  const num = getNum(string, 0); // no digit defaults to 0 (Sunday), matching Python
+  if (!(num >= 0 && num <= 7)) {
+    throw new SnapParseError(`Bad weekday '${num}'`);
   }
-  const result = getNum(string, null);
-  if (result !== null && !(result >= 0 && result <= 7)) {
-    throw new SnapParseError(`Bad weekday '${result}'`);
+  // Both 0 and 7 map to Sunday (Luxon weekday 7), matching Python where 0 is falsy
+  // and falls through to the same Sunday-snap branch as no digit.
+  if (num === 0) {
+    return 7;
   }
-  return result + 1; // Luxon uses 1-7 for weekdays, but this library needs to support 0-6.
+  return num; // 1–6 map directly to Luxon 1–6 (Mon–Sat)
 }
 
 // Given a string representing the sign of a signed int, return the direction of the sign.
 function getMult(string: string): number {
-  return string === "-" ? -1 : 1;
+  return string === '-' ? -1 : 1;
 }
 
 // patterns for matching the delta e.g. +1d, -2h
-const D_GENERAL = "[-+]?\\d+[a-zA-Z]+";
-const D_PATTERN = new RegExp("([-+]?)(\\d+)([a-zA-Z]+)");
+const D_GENERAL = '[-+]?\\d+[a-zA-Z]+';
+const D_PATTERN = /([-+]?)(\d+)([a-zA-Z]+)/;
 
 // patterns for matching the snap e.g. @d, @h
-const S_GENERAL = "@[a-zA-Z]+\\d*";
-const S_PATTERN = new RegExp("@([a-zA-Z]+)(\\d*)");
+const S_GENERAL = '@[a-zA-Z]+\\d*';
+const S_PATTERN = /@([a-zA-Z]+)(\d*)/;
 
 const HEAD_PATTERN = new RegExp(`^(${S_GENERAL}|${D_GENERAL})(.*)`);
 
@@ -75,18 +76,18 @@ const HEAD_PATTERN = new RegExp(`^(${S_GENERAL}|${D_GENERAL})(.*)`);
  */
 class SnapTransformation {
   unit: string;
-  weekday: number | null = null;
+  weekday: number = 7; // Luxon ISO weekday (1=Mon, 7=Sun); only meaningful when unit === 'weeks'
 
   constructor(group: string) {
     const match = S_PATTERN.exec(group);
-    if (!match) throw new Error("No match");
+    if (!match) {
+      throw new Error('No match');
+    }
 
     // Using positional indices instead of named groups
     this.unit = getUnit(match[1]);
-    if (this.unit !== "weeks" && match[2] !== "") {
-      throw new SnapParseError(
-        `Cannot parse instruction '${group}'. There is an error at '${match[2]}'`
-      );
+    if (this.unit !== 'weeks' && match[2] !== '') {
+      throw new SnapParseError(`Cannot parse instruction '${group}'. There is an error at '${match[2]}'`);
     }
     this.weekday = getWeekday(match[2]);
   }
@@ -95,30 +96,32 @@ class SnapTransformation {
   applyTo(dttm: DateTime): DateTime {
     let result = dttm;
 
-    if (this.unit === "weeks" && this.weekday !== null) {
-      result = result.set({ weekday: this.weekday });
-    } else {
-      switch (this.unit) {
-        case "seconds":
-          result = result.startOf("second");
-          break;
-        case "minutes":
-          result = result.startOf("minute");
-          break;
-        case "hours":
-          result = result.startOf("hour");
-          break;
-        case "days":
-        case "weeks":
-          result = result.startOf("day");
-          break;
-        case "months":
-          result = result.startOf("month");
-          break;
-        case "years":
-          result = result.startOf("year");
-          break;
+    switch (this.unit) {
+      case 'seconds':
+        result = result.startOf('second');
+        break;
+      case 'minutes':
+        result = result.startOf('minute');
+        break;
+      case 'hours':
+        result = result.startOf('hour');
+        break;
+      case 'days':
+        result = result.startOf('day');
+        break;
+      case 'weeks': {
+        // Snap backward to the most recent occurrence of the target weekday,
+        // matching Python: result -= timedelta((isoweekday - target) % 7)
+        const daysBack = (result.weekday - this.weekday + 7) % 7;
+        result = result.minus({ days: daysBack }).startOf('day');
+        break;
       }
+      case 'months':
+        result = result.startOf('month');
+        break;
+      case 'years':
+        result = result.startOf('year');
+        break;
     }
 
     return result;
@@ -136,7 +139,9 @@ class DeltaTransformation {
 
   constructor(group: string) {
     const match = D_PATTERN.exec(group);
-    if (!match) return; // if there's no match, the properties will remain null
+    if (!match) {
+      return; // if there's no match, the properties will remain null
+    }
 
     // Using positional indices instead of named groups
     this.mult = getMult(match[1]);
@@ -147,34 +152,34 @@ class DeltaTransformation {
   // Given a Date, modify it with the delta logic
   applyTo(dttm: DateTime): DateTime {
     if (this.unit === null || this.mult === null || this.num === null) {
-      throw new SnapTransformError("No transformation to apply");
+      throw new SnapTransformError('No transformation to apply');
     }
 
     let result = dttm;
 
     switch (this.unit) {
-      case "milliseconds":
+      case 'milliseconds':
         result = result.plus({ milliseconds: this.mult * this.num });
         break;
-      case "seconds":
+      case 'seconds':
         result = result.plus({ seconds: this.mult * this.num });
         break;
-      case "minutes":
+      case 'minutes':
         result = result.plus({ minutes: this.mult * this.num });
         break;
-      case "hours":
+      case 'hours':
         result = result.plus({ hours: this.mult * this.num });
         break;
-      case "days":
+      case 'days':
         result = result.plus({ days: this.mult * this.num });
         break;
-      case "weeks":
+      case 'weeks':
         result = result.plus({ weeks: this.mult * this.num });
         break;
-      case "months":
+      case 'months':
         result = result.plus({ months: this.mult * this.num });
         break;
-      case "years":
+      case 'years':
         result = result.plus({ years: this.mult * this.num });
         break;
     }
@@ -186,18 +191,14 @@ class DeltaTransformation {
 /**
  * Parses a string instruction and returns the necessary transformations
  */
-function parse(
-  instruction: string
-): (SnapTransformation | DeltaTransformation)[] {
+function parse(instruction: string): (SnapTransformation | DeltaTransformation)[] {
   let instr = instruction;
   const result: (SnapTransformation | DeltaTransformation)[] = [];
 
   while (instr) {
     const match = HEAD_PATTERN.exec(instr); // get the first parseable chunk of the instruction
     if (!match) {
-      throw new SnapParseError(
-        `Cannot parse instruction '${instruction}'. There is an error at '${instr}'`
-      );
+      throw new SnapParseError(`Cannot parse instruction '${instruction}'. There is an error at '${instr}'`);
     }
     const group = match[1];
 
@@ -222,18 +223,12 @@ function parse(
  * Example usage:
  * const result = snap(new Date().toISOString(), "@mon");
  */
-export default function snap(
-  dttm: string,
-  instruction: string,
-  opts?: { zone: string }
-): string | null {
+export default function snap(dttm: string, instruction: string, opts?: { zone: string }): string | null {
   const dateObj = DateTime.fromISO(dttm, { zone: opts?.zone });
 
   // if the dateObj is not valid, then the string supplied was not parseable by luxon
   if (!dateObj.isValid) {
-    throw new SnapParseError(
-      "Invalid date supplied, unable to parse. Please use ISO 8601 format"
-    );
+    throw new SnapParseError('Invalid date supplied, unable to parse. Please use ISO 8601 format');
   }
 
   if (!instruction) {
@@ -241,7 +236,7 @@ export default function snap(
   }
 
   // return the current date if the instruction is "now"
-  if (instruction === "now") {
+  if (instruction === 'now') {
     return DateTime.fromISO(DateTime.now().toISO() as string, {
       zone: opts?.zone,
     }).toISO();
@@ -249,12 +244,12 @@ export default function snap(
 
   const transformations = parse(instruction);
   const result = transformations.reduce(
-    (dt, transformation) => transformation.applyTo(dt),
-    dateObj
+    (dt, transformation) => transformation.applyTo(dt) as DateTime<true>,
+    dateObj as DateTime<true>,
   );
 
   if (!result.isValid) {
-    throw new SnapTransformError("Unable to apply transformations");
+    throw new SnapTransformError('Unable to apply transformations');
   }
   return result.toISO();
 }
@@ -264,33 +259,24 @@ export default function snap(
  * Given a Luxon Duration object, return a modifier string that represents it
  */
 function createModifierString(diff: Duration) {
-  const units = [
-    "years",
-    "months",
-    "weeks",
-    "days",
-    "hours",
-    "minutes",
-    "seconds",
-    "milliseconds",
-  ];
+  const units = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'milliseconds'];
   const unitAbbreviations = {
-    years: "y",
-    months: "mon",
-    weeks: "w",
-    days: "d",
-    hours: "h",
-    minutes: "m",
-    seconds: "s",
-    milliseconds: "ms",
+    years: 'y',
+    months: 'mon',
+    weeks: 'w',
+    days: 'd',
+    hours: 'h',
+    minutes: 'm',
+    seconds: 's',
+    milliseconds: 'ms',
   };
 
-  let modifierString = "";
+  let modifierString = '';
   for (const unit of units) {
     // @ts-expect-error
     const value = diff[unit];
     if (value !== 0) {
-      const sign = value > 0 ? "+" : "-";
+      const sign = value > 0 ? '+' : '-';
       // @ts-expect-error
       modifierString += `${sign}${Math.abs(value)}${unitAbbreviations[unit]}`;
     }
@@ -310,36 +296,18 @@ export function unsnap(target: string, anchor: string): string {
   const anchorDate = anchor ? DateTime.fromISO(anchor) : DateTime.now();
 
   if (!targetDate.isValid || !anchorDate.isValid) {
-    throw new SnapParseError(
-      "Invalid date supplied, unable to parse. Please use ISO 8601 format"
-    );
+    throw new SnapParseError('Invalid date supplied, unable to parse. Please use ISO 8601 format');
   }
 
   const diff = targetDate
-    .diff(
-      anchorDate,
-      [
-        "years",
-        "months",
-        "weeks",
-        "days",
-        "hours",
-        "minutes",
-        "seconds",
-        "milliseconds",
-      ],
-      { conversionAccuracy: "longterm" }
-    )
+    .diff(anchorDate, ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'milliseconds'], {
+      conversionAccuracy: 'longterm',
+    })
     .shiftToAll()
     .normalize();
   const modifierString = createModifierString(diff);
 
-  const simplifiedModifier = simplify(
-    diff,
-    modifierString,
-    targetDate,
-    anchorDate
-  );
+  const simplifiedModifier = simplify(diff, modifierString, targetDate, anchorDate);
 
   return simplifiedModifier;
 }
@@ -348,12 +316,7 @@ export function unsnap(target: string, anchor: string): string {
  * @private
  * This method makes an attempt to simplify a modifer string with snap transformations
  */
-function simplify(
-  diff: DurationLikeObject,
-  modifier: string,
-  targetDate: DateTime,
-  anchorDate: DateTime
-): string {
+function simplify(diff: DurationLikeObject, modifier: string, targetDate: DateTime, anchorDate: DateTime): string {
   const diffKeys = Object.keys(UNIT_LISTS)
     // @ts-expect-error
     .filter((key) => diff[key] !== 0)
@@ -362,10 +325,7 @@ function simplify(
   for (let i = 0; i < diffKeys.length; i++) {
     const newModifier = snapDescendants(modifier, diffKeys[i]);
     const newSnap = snap(anchorDate.toISO() as string, newModifier);
-    if (
-      newSnap === targetDate.toISO() &&
-      newModifier.length <= modifier.length
-    ) {
+    if (newSnap === targetDate.toISO() && newModifier.length <= modifier.length) {
       return newModifier;
     }
   }
@@ -386,41 +346,26 @@ function simplify(
  *
  * This method is used internally by unsnap() to simplify the modifier string.
  */
-export function snapDescendants(
-  modifierString: string,
-  unitType: keyof typeof UNIT_LISTS
-) {
-  const unitsHierarchy = [
-    "years",
-    "months",
-    "weeks",
-    "days",
-    "hours",
-    "minutes",
-    "seconds",
-    "milliseconds",
-  ];
+export function snapDescendants(modifierString: string, unitType: keyof typeof UNIT_LISTS) {
+  const unitsHierarchy = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'milliseconds'];
 
-  let result = "";
-  let negativeChain = "";
+  let result = '';
+  let negativeChain = '';
   let insideNegativeChain = false;
 
   for (const unit of unitsHierarchy) {
     if (UNIT_LISTS[unit]) {
       for (const abbreviation of UNIT_LISTS[unit]) {
-        const regex = new RegExp(`([+-]?\\d+)${abbreviation}\\b`, "g");
+        const regex = new RegExp(`([+-]?\\d+)${abbreviation}\\b`, 'g');
         const match = regex.exec(modifierString);
 
         if (match) {
-          if (match[0].startsWith("-")) {
+          if (match[0].startsWith('-')) {
             insideNegativeChain = true;
             negativeChain = match[0] + negativeChain;
           } else if (insideNegativeChain) {
             // Once we encounter a positive delta after starting the negative chain, we stop and snap the negative chain
-            const snappedNegativeChain = snapNegativeChain(
-              negativeChain,
-              unitType
-            );
+            const snappedNegativeChain = snapNegativeChain(negativeChain, unitType);
             return result + snappedNegativeChain;
           } else {
             result = result + match[0];
@@ -438,21 +383,23 @@ export function snapDescendants(
 
   return modifierString; // Return the original string if there is no negative chain
 
-  function snapNegativeChain(chain: any, unitType: any) {
+  function snapNegativeChain(chain: string, unitType: string) {
     let isSnapping = false;
-    let snappedChain = "";
+    let snappedChain = '';
 
     for (const unit of unitsHierarchy) {
-      if (unit === unitType) isSnapping = true;
+      if (unit === unitType) {
+        isSnapping = true;
+      }
 
       if (UNIT_LISTS[unit]) {
         for (const abbreviation of UNIT_LISTS[unit]) {
-          const regex = new RegExp(`([+-]?\\d+)${abbreviation}\\b`, "g");
+          const regex = new RegExp(`([+-]?\\d+)${abbreviation}\\b`, 'g');
           const match = regex.exec(chain);
 
           if (match) {
             if (isSnapping) {
-              return snappedChain + match[0] + "@" + UNIT_LISTS[unit][0]; // Return immediately after snapping
+              return `${snappedChain + match[0]}@${UNIT_LISTS[unit][0]}`; // Return immediately after snapping
             } else {
               snappedChain = snappedChain + match[0];
             }
